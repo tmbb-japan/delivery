@@ -38,6 +38,50 @@ class CustomInterceptor extends Interceptor {
     }
     return super.onRequest(options, handler);
   }
+
   // 2) 응답을 받을때
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    return super.onResponse(response, handler);
+  }
+
   // 3) 에러가 났을때
+  @override
+  void onError(DioError err, ErrorInterceptorHandler handler) async {
+    // 401에러가 났을때 (status code)
+    // 토큰을 재발급 받는 시도를 하고 토큰이 재발급되면
+    // 다시 새로운 토큰으로 요청을 한다.
+    final refreshToken = await storage.read(key: REFRESH_TOKEN_KEY);
+
+    if (refreshToken == null) {
+      return handler.reject(err);
+    }
+    final isStatus401 = err.response?.statusCode == 401;
+    final isPathRefresh = err.requestOptions.path == '/auth/token';
+
+    if (isStatus401 && !isPathRefresh) {
+      final dio = Dio();
+      try {
+        final resp = await dio.post(
+          'http://$ip/auth/token',
+          options: Options(headers: {
+            'authorization': 'Bearer $refreshToken',
+          }),
+        );
+        final accessToken = resp.data['accessToken'];
+        final options = err.requestOptions;
+        //토큰 변경
+        options.headers.addAll({
+          'authorization': 'Bearer $accessToken',
+        });
+        await storage.write(key: ACCESS_TOKEN_KEY, value: accessToken);
+        //요청 재전송
+        final response = await dio.fetch(options);
+        return handler.resolve(response);
+      } on DioError catch (e) {
+        return handler.reject(e);
+      }
+    }
+    return handler.reject(err);
+  }
 }
