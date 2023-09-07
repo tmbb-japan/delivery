@@ -1,8 +1,10 @@
 import 'package:delivery/common/const/data.dart';
 import 'package:delivery/common/dio/dio.dart';
 import 'package:delivery/common/layout/default_layout.dart';
+import 'package:delivery/common/model/cursor_pagination_model.dart';
 import 'package:delivery/product/component/product_card.dart';
 import 'package:delivery/rating/component/rating_card.dart';
+import 'package:delivery/rating/model/rating_model.dart';
 import 'package:delivery/restaurant/component/restaurant_card.dart';
 import 'package:delivery/restaurant/model/restaurant_detail_model.dart';
 import 'package:delivery/restaurant/model/restaurant_model.dart';
@@ -41,7 +43,6 @@ class _RestaurantDetailScreenState
     final state = ref.watch(restaurantDetailProvider(widget.id));
     final ratingsState = ref.watch(restaurantRatingProvider(widget.id));
 
-    print(ratingsState);
     if (state == null) {
       return DefaultLayout(
         child: Center(
@@ -63,21 +64,30 @@ class _RestaurantDetailScreenState
             renderProducts(
               products: state.products,
             ),
-          SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            sliver: SliverToBoxAdapter(
-              child: RatingCard(
-                avatarImage: AssetImage(
-                  'asset/img/logo/codefactory_logo.png',
-                ),
-                content: '맛있습니다.',
-                email: 'jc@codefactory.ai',
-                images: [],
-                rating: 4,
-              ),
+          if (ratingsState is CursorPagination<RatingModel>)
+            renderRatings(
+              models: ratingsState.data,
             ),
-          )
         ],
+      ),
+    );
+  }
+
+  SliverPadding renderRatings({
+    required List<RatingModel> models,
+  }) {
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (_, index) => Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: RatingCard.fromModel(
+              model: models[index],
+            ),
+          ),
+          childCount: models.length,
+        ),
       ),
     );
   }
